@@ -1,5 +1,7 @@
 # GPU Kernels From Scratch
 
+[Watch the full course on YouTube](https://youtu.be/1BUxizMA0po)
+
 This is the code for the video course. You write GPU kernels in [Triton](https://github.com/triton-lang/triton), from your first vector add to FlashAttention. Each part has tasks, a checker that says PASS or FAIL, and a benchmark.
 
 ## Why learn this when AI can type a kernel
