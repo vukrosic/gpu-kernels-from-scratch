@@ -52,3 +52,7 @@ part1/
 part2/ ...       the same layout for every part
 kfs_check.py     the checker shared by Part 2 onward (guards, PASS/FAIL lines)
 ```
+
+## Validation scope
+
+The CPU stand-in is for learning and correctness checks, not GPU performance validation. GPU benchmark results are not included in this release; run the benchmarks on your own supported NVIDIA GPU. The Colab notebook introduces Parts 1–2; continue with each later part’s README for Parts 3–5.
