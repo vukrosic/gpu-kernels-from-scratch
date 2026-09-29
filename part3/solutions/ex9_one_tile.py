@@ -1,0 +1,39 @@
+"""Solution to exercise 9."""
+from backend import DEVICE  # noqa: F401
+
+import torch
+import triton
+import triton.language as tl
+
+
+@triton.jit
+def tile_kernel(a_ptr, b_ptr, c_ptr, M, N, K,
+                stride_am, stride_ak, stride_bk, stride_bn, stride_cm, stride_cn,
+                BLOCK_M: tl.constexpr, BLOCK_N: tl.constexpr, BLOCK_K: tl.constexpr):
+    pid_m = tl.program_id(0)  # which row of tiles
+    pid_n = tl.program_id(1)  # which column of tiles
+    rm = pid_m * BLOCK_M + tl.arange(0, BLOCK_M)  # rows of C this program writes
+    rn = pid_n * BLOCK_N + tl.arange(0, BLOCK_N)  # columns of C this program writes
+    rk = tl.arange(0, BLOCK_K)                    # all of K, in one block
+    a_ptrs = a_ptr + rm[:, None] * stride_am + rk[None, :] * stride_ak  # (BLOCK_M, BLOCK_K)
+    b_ptrs = b_ptr + rk[:, None] * stride_bk + rn[None, :] * stride_bn  # (BLOCK_K, BLOCK_N)
+    a = tl.load(a_ptrs, mask=(rm[:, None] < M) & (rk[None, :] < K), other=0.0)
+    b = tl.load(b_ptrs, mask=(rk[:, None] < K) & (rn[None, :] < N), other=0.0)
+    c = tl.dot(a, b)  # (BLOCK_M, BLOCK_N), float32
+    c_ptrs = c_ptr + rm[:, None] * stride_cm + rn[None, :] * stride_cn
+    tl.store(c_ptrs, c, mask=(rm[:, None] < M) & (rn[None, :] < N))
+
+
+def matmul_small_k(a, b, out=None):
+    M, K = a.shape
+    K2, N = b.shape
+    assert K == K2 and K <= 128, "this version holds all of K in one block"
+    if out is None:
+        out = torch.empty((M, N), dtype=a.dtype, device=a.device)
+    BLOCK_M, BLOCK_N = 32, 32
+    BLOCK_K = max(16, triton.next_power_of_2(K))  # tl.dot needs every size >= 16
+    grid = (triton.cdiv(M, BLOCK_M), triton.cdiv(N, BLOCK_N))
+    tile_kernel[grid](a, b, out, M, N, K,
+                      a.stride(0), a.stride(1), b.stride(0), b.stride(1), out.stride(0), out.stride(1),
+                      BLOCK_M=BLOCK_M, BLOCK_N=BLOCK_N, BLOCK_K=BLOCK_K)
+    return out

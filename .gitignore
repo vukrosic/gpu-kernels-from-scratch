@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+bench.csv
+.ipynb_checkpoints/
+losses.csv
